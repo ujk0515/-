@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <title>QA 통합 유틸리티</title>
+
+  <!-- 🔥 수파베이스 CDN 추가 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="assets/css/styles.css">
+
+  <!-- External Libraries -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+
+  <!-- External Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+  <script src="assets/js/katalon-object-generator.js"></script>
+  <script src="assets/js/object-spy-controller.js"></script>
+  <style>
+    button.tab-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background-color: #e9ecef;
+      color: #6c757d;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <button class="tab-button" data-tab="csv" disabled>📊 CSV 파싱</button>
+    <button class="tab-button active" data-tab="groovy">⚙️ Groovy 변환</button>
+    <button class="tab-button" data-tab="report">📈 결과 리포트</button>
+    <button class="tab-button" data-tab="mapping" disabled>🔄 테스트케이스 매핑</button>
+    <button class="tab-button" data-tab="tcmerger" disabled>📦 TC 병합/분리</button>
+    <button class="tab-button" data-tab="smart">🧠 스마트 매핑</button>
+    <button class="tab-button" data-tab="objectspy">🔍 Object Spy</button>
+  </header>
+
+  <main>
+    <!-- CSV 파싱 탭 -->
+    <div id="csv" class="tab-content">
+      <div class="container">
+        <div class="csv-header">
+          <h2>🔪 WebUI.comment 기반 메타데이터 파서</h2>
+          <p>CSV 파일을 업로드하여 WebUI.comment 데이터를 자동으로 파싱하고 분석합니다</p>
+        </div>
+
+        <div class="file-upload-section">
+          <div class="file-input-wrapper">
+            <input type="file" id="csvFile" accept=".csv">
+            <label for="csvFile" class="file-input-label">
+              📁 CSV 파일 선택
+            </label>
+          </div>
+          <p style="color: #6b7280; margin: 15px 0 0 0;">CSV 파일을 선택하면 자동으로 파싱이 시작됩니다</p>
+        </div>
+
+        <div class="action-buttons">
+          <button id="downloadBtn" class="action-btn download-btn">⬇️ 엑셀 다운로드</button>
+          <button id="exampleDownloadBtn" class="action-btn example-btn">📥 예시파일 다운로드</button>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <table id="resultTable" class="display" style="display:none;"></table>
+      </div>
+    </div>
+
+    <!-- Groovy 변환기 탭 -->
+    <div id="groovy" class="tab-content active">
+      <div class="container">
+        <div class="groovy-header">
+          <h2>📄 Excel ➔ Katalon Test Case 변환기</h2>
+          <p>Excel 파일을 Katalon 테스트 케이스(.tc) 및 Groovy 스크립트로 변환합니다</p>
+        </div>
+
+        <div class="conversion-section">
+          <div class="file-input-wrapper">
+            <input type="file" id="excelFile" accept=".xlsx">
+            <label for="excelFile" class="file-input-label">
+              📊 Excel 파일 선택
+            </label>
+          </div>
+          <p style="color: #6b7280; margin: 15px 0 0 0; text-align: center;">Excel 형식의 테스트 케이스를 업로드하세요</p>
+
+          <div class="zip-buttons">
+            <button onclick="generateAllZip('tc')" class="zip-btn">📦 전체 .tc ZIP 다운로드</button>
+            <button onclick="generateAllZip('groovy')" class="zip-btn">📦 전체 .groovy ZIP 다운로드</button>
+          </div>
+        </div>
+
+        <div class="preview-section">
+          <div id="preview">
+            <div style="text-align: center; color: #6b7280; padding: 50px 0;">
+              <h3>🔄 변환 미리보기</h3>
+              <p>Excel 파일을 선택하면 변환 결과가 여기에 표시됩니다</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 결과 리포트 탭 -->
+    <div id="report" class="tab-content">
+      <div class="container">
+        <div class="report-header">
+          <h2>🧾 HTML 결과값 Report 뷰어</h2>
+          <p>HTML 테스트 결과 파일을 업로드하여 시각적으로 분석합니다</p>
+        </div>
+
+        <div class="file-upload-section" style="margin-bottom: 30px;">
+          <div class="file-input-wrapper">
+            <input type="file" id="reportFileInput" accept=".html">
+            <label for="reportFileInput" class="file-input-label">
+              📄 HTML 결과 파일 선택
+            </label>
+          </div>
+          <p style="color: #6b7280; margin: 15px 0 0 0;">테스트 결과 HTML 파일을 업로드하세요</p>
+        </div>
+
+        <div class="report-viewer">
+          <iframe id="reportPreview" class="report-preview"></iframe>
+          <div id="reportResult" class="report-result">
+            <h2>📋 파싱된 데이터가 이 영역에 표시됩니다</h2>
+            <p style="text-align: center; color: #9ca3af;">HTML 파일을 업로드하면 분석 결과와 차트가 여기에 나타납니다</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔥 테스트케이스 매핑 탭 (수파베이스 연동) -->
+    <div id="mapping" class="tab-content">
+      <div class="mapping-container">
+        <div class="panel left-panel">
+          <div class="panel-header">
+            <span>📝 테스트케이스 입력</span>
+            <button class="reset-btn" onclick="resetInput()">🔄 초기화</button>
+          </div>
+          <div class="panel-content">
+            <div class="input-section">
+              <label class="input-label">테스트케이스 전체 내용</label>
+              <textarea id="testcaseInput" class="input-box" placeholder="테스트케이스 전체 내용을 입력하세요...
+
+예시:
+Summary: 로그인 기능 테스트
+Precondition: 
+0. 브라우저를 열고 로그인 페이지로 이동
+1. 유효한 사용자 계정이 존재함
+2. 네트워크 연결이 정상임
+Steps:
+1. 아이디 입력 필드에 테스트 계정 입력
+2. 비밀번호 입력 필드에 비밀번호 입력
+3. 로그인 버튼 클릭
+Expected Result: 로그인 성공 후 메인 페이지로 이동"></textarea>
+            </div>
+            <button class="extract-btn" onclick="extractTestcaseData()">📊 데이터 추출</button>
+          </div>
+        </div>
+        <div class="panel center-panel">
+          <div class="panel-header">
+            <span>🔍 파싱 결과</span>
+            <button class="reset-btn" onclick="resetParsing()">🔄 초기화</button>
+          </div>
+          <div class="panel-content">
+            <div class="parsed-section">
+              <div class="section-header">📋 Summary</div>
+              <div class="section-content" id="summaryResult">
+                <span class="placeholder-text">추출된 Summary가 여기에 표시됩니다</span>
+              </div>
+            </div>
+            <div class="parsed-section">
+              <div class="section-header">⚙️ Precondition</div>
+              <div class="section-content" id="preconditionResult">
+                <span class="placeholder-text">추출된 Precondition이 여기에 표시됩니다</span>
+              </div>
+            </div>
+            <div class="parsed-section steps-section">
+              <div class="section-header">🔢 Steps</div>
+              <div class="section-content" id="stepsResult">
+                <span class="placeholder-text">추출된 Steps가 여기에 표시됩니다</span>
+              </div>
+            </div>
+            <div class="parsed-section">
+              <div class="section-header">✅ Expected Result</div>
+              <div class="section-content" id="expectedResult">
+                <span class="placeholder-text">추출된 Expected Result가 여기에 표시됩니다</span>
+              </div>
+            </div>
+            <button class="convert-btn" id="convertBtn" onclick="generateMappingScript()" disabled>⚡ 스크립트 전환</button>
+          </div>
+        </div>
+        <div class="panel right-panel">
+          <div class="panel-header">
+            <span>🛠️ 카탈론 매핑 스크립트</span>
+            <button class="reset-btn" onclick="resetScript()">🔄 초기화</button>
+          </div>
+          <div class="panel-content">
+            <div class="script-section">
+              <div class="script-header">
+                <div class="mapping-indicator no-mapping" id="mappingIndicator"></div>
+                📋 통합 매핑 스크립트
+                <button class="copy-btn" onclick="copyScript()">📋 복사</button>
+              </div>
+              <div class="script-content" id="scriptResult">
+                <span class="placeholder-text">// 수파베이스 연동 카탈론 매핑 스크립트가 여기에 생성됩니다
+                  //
+                  // === Precondition Scripts ===
+                  // Precondition 매핑 스크립트가 여기에 표시됩니다
+                  //
+                  // === Summary Scripts ===
+                  // Summary 매핑 스크립트가 여기에 표시됩니다
+                  //
+                  // === Steps Scripts ===
+                  // Steps 매핑 스크립트가 여기에 표시됩니다
+                  //
+                  // === Expected Result Scripts ===
+                  // Expected Result 매핑 스크립트가 여기에 표시됩니다</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TC 병합/분리 탭 -->
+    <div id="tcmerger" class="tab-content">
+      <div class="container">
+        <div class="tcmerger-header">
+          <h2>📦 Test Case Excel/CSV 병합 / 분리 도구</h2>
+          <p>CSV/Excel 파일의 테스트 케이스 단계를 병합하거나 분리합니다</p>
+        </div>
+
+        <div style="display: flex; justify-content: center; margin-bottom: 30px; gap: 10px;">
+          <button class="tcmerger-tab-btn active" data-tcmerger-tab="merge" onclick="switchTCMergerTab('merge')">📦 병합
+            기능</button>
+          <button class="tcmerger-tab-btn" data-tcmerger-tab="split" onclick="switchTCMergerTab('split')">🔍 분리
+            기능</button>
+        </div>
+
+        <div id="mergeTab" class="tcmerger-tab-content active">
+          <div class="tab-description">
+            <h3>📦 병합 기능</h3>
+            <p><strong>CSV 파일</strong>의 개별 Step 컬럼들을 <strong>Steps</strong>로 병합합니다.</p>
+            <p>• 입력: Steps (Step), Step 1, Step 2, Step 3, Step 4, Step 5, Step 6</p>
+            <p>• 출력: Steps (자동 번호 매기기 포함)</p>
+          </div>
+
+          <div class="file-upload-section">
+            <h4>📁 CSV 파일 업로드</h4>
+            <div class="file-input-wrapper">
+              <input type="file" id="mergeFileInput" accept=".csv">
+              <label for="mergeFileInput" class="file-input-label">
+                📁 CSV 파일 선택
+              </label>
+            </div>
+            <p style="color: #6c757d; margin-top: 10px;">CSV 파일만 지원됩니다</p>
+          </div>
+
+          <div id="mergeFileInfo" class="file-info"></div>
+          <div id="mergeCleaningInfo" class="file-info cleaning-info">
+            🧹 HTML 태그 정리 완료! 태그들이 적절히 변환/제거되었습니다.
+          </div>
+
+          <div class="action-buttons">
+            <button class="action-btn download-btn" onclick="executeMerge()">📦 병합 실행</button>
+            <button class="action-btn example-btn" onclick="downloadMergeResult()">⬇ 병합 결과 다운로드</button>
+          </div>
+
+          <div id="mergeResult">
+            <div class="empty-state">
+              <div class="icon">📋</div>
+              <p>CSV 파일을 업로드하고 병합을 실행해주세요</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="splitTab" class="tcmerger-tab-content">
+          <div class="tab-description">
+            <h3>🔍 분리 기능</h3>
+            <p><strong>Excel 파일</strong>의 Steps를 개별 Step 컬럼들로 분리합니다.</p>
+            <p>• 입력: Steps</p>
+            <p>• 출력: Steps (Step), Step 1, Step 2, Step 3, Step 4, Step 5, Step 6</p>
+          </div>
+
+          <div class="file-upload-section">
+            <h4>📁 Excel 파일 업로드</h4>
+            <div class="file-input-wrapper">
+              <input type="file" id="splitFileInput" accept=".xlsx">
+              <label for="splitFileInput" class="file-input-label">
+                📊 Excel 파일 선택
+              </label>
+            </div>
+            <p style="color: #6c757d; margin-top: 10px;">Excel 파일(.xlsx)만 지원됩니다</p>
+          </div>
+
+          <div id="splitFileInfo" class="file-info"></div>
+          <div id="splitCleaningInfo" class="file-info cleaning-info">
+            🧹 HTML 태그 정리 완료! 태그들이 적절히 변환/제거되었습니다.
+          </div>
+
+          <div class="action-buttons">
+            <button class="action-btn download-btn" onclick="executeSplit()">🔍 분리 실행</button>
+            <button class="action-btn example-btn" onclick="downloadSplitResult()">⬇ 분리 결과 다운로드</button>
+          </div>
+
+          <div id="splitResult">
+            <div class="empty-state">
+              <div class="icon">🔍</div>
+              <p>Excel 파일을 업로드하고 분리를 실행해주세요</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 스마트 매핑 탭 -->
+    <div id="smart" class="tab-content">
+      <div class="smart-container">
+        <!-- 헤더 유지 -->
+        <div class="smart-header">
+          <h2>🧠 AI 기반 스마트 테스트 매핑</h2>
+          <p>Gemini AI가 인간처럼 생각하여 테스트케이스를 분석하고 최적의 Katalon 스크립트를 생성합니다</p>
+        </div>
+
+        <!-- 6단계 진행바를 상단으로 -->
+        <div id="smartProgress" class="smart-progress-container" style="display: none;">
+          <div class="progress-steps">
+            <div class="step" id="step1">1. Summary 이해</div>
+            <div class="step" id="step2">2. TC 조건 파악</div>
+            <div class="step" id="step3">3. 환경 구성 검증</div>
+            <div class="step" id="step4">4. 스텝 동작 매핑</div>
+            <div class="step" id="step5">5. 조건 충돌 검증</div>
+            <div class="step" id="step6">6. 결과 수렴 검증</div>
+          </div>
+          <div class="progress-details" id="progressDetails"></div>
+        </div>
+
+        <!-- 좌우 2단 레이아웃 -->
+        <div class="smart-main-content">
+          <!-- 좌측: TC 입력 + 품질 평가 (세로 2분할) -->
+          <div class="smart-input-section">
+
+            <!-- 상단: TC 입력 영역 (기존 높이의 50%) -->
+            <div class="smart-input-top">
+              <div class="input-header">
+                <h3>📝 테스트케이스 입력</h3>
+                <div class="header-controls"></div>
+                <button id="smartResetBtn" class="smart-reset-btn">🔄 초기화</button>
+                <select id="aiModelSelect" class="ai-model-dropdown">
+                  <option value="gemma-3-27b-it">Gemma-3-27b-it</option>
+                  <option value="gemini-2.0-flash">Gemini-2.0-flash</option>
+                </select>
+              </div>
+              <textarea id="smartTestcaseInput" class="smart-input-box" placeholder="..."></textarea>
+              <button class="smart-generate-btn" onclick="startSmartMapping()">🧠 스마트 분석 시작</button>
+            </div>
+
+            <!-- 하단: 스크립트 품질 평가 영역 (새로 추가) -->
+            <div class="smart-quality-section">
+              <h3>📊 스크립트 품질 평가</h3>
+              <div class="quality-content">
+                <div id="smartScriptScore" class="script-score-display" style="display: none;">
+                  <div id="scoreCircleLarge" class="score-circle-large score-waiting">
+                    <span id="scoreValueLarge">?</span>
+                  </div>
+                  <div id="scoreDetailsLarge" class="score-details-large">분석을 시작하면 AI가 생성된 스크립트의 품질을 평가합니다</div>
+                </div>
+                <div id="qualityPlaceholder" class="quality-placeholder">
+                  스크립트가 생성되면 AI 품질 평가가 여기에 표시됩니다
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 우측: 결과 영역 (기존 유지) -->
+          <div id="smartResult" class="smart-result-container" style="display: none;">
+            <h3>🎯 생성된 Katalon 스크립트</h3>
+
+            <div class="script-actions">
+              <button onclick="copySmartScript()">📋 복사</button>
+              <button onclick="downloadSmartScript()">⬇️ 다운로드</button>
+              <button class="improve-script-btn" onclick="improveSmartScript()">🛠️ AI 검토 반영</button>
+            </div>
+            <pre id="smartGeneratedScript"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Object Spy 탭 -->
+    <div id="objectspy" class="tab-content">
+      <div class="object-spy-layout">
+        <!-- 상단 주소창 -->
+        <div class="address-bar">
+          <input type="text" id="urlInput" class="address-input" placeholder="https://example.com"
+            value="https://jsonplaceholder.typicode.com">
+          <button id="goBtn" class="go-button">이동</button>
+          <button id="spyToggle" class="spy-button">🔍 Spy 시작</button>
+        </div>
+
+        <!-- 메인 영역 -->
+        <div class="main-container">
+          <!-- 웹페이지 영역 (80%) -->
+          <div class="webpage-area">
+            <div class="iframe-container">
+              <iframe id="objectSpyFrame" class="webpage-frame"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation">
+              </iframe>
+              <div id="loadingIndicator" class="loading-indicator">
+                <div class="spinner"></div>
+                <p>페이지 로딩 중...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 오브젝트 패널 (20%) -->
+          <div class="object-panel">
+            <!-- 설정 영역 -->
+            <div class="settings-section">
+              <h3>⚙️ Selection Method</h3>
+              <div class="selection-methods">
+                <label class="method-option">
+                  <input type="radio" name="method" value="XPATH" checked>
+                  <span>XPath</span>
+                </label>
+                <label class="method-option">
+                  <input type="radio" name="method" value="CSS">
+                  <span>CSS</span>
+                </label>
+                <label class="method-option">
+                  <input type="radio" name="method" value="ID">
+                  <span>ID</span>
+                </label>
+                <label class="method-option">
+                  <input type="radio" name="method" value="NAME">
+                  <span>Name</span>
+                </label>
+              </div>
+
+              <h3>📍 Selected Locator</h3>
+              <div id="selectedLocator" class="selected-locator">
+                요소를 선택하세요
+              </div>
+            </div>
+
+            <!-- 정보 영역 -->
+            <div class="info-section">
+              <h3>📋 Object Properties</h3>
+              <div id="objectProperties" class="object-properties">
+                <div class="placeholder">요소를 선택하면 속성이 표시됩니다</div>
+              </div>
+
+              <!-- 액션 버튼들 -->
+              <div class="action-buttons">
+                <input type="text" id="objectName" class="object-name-input" placeholder="오브젝트 명">
+                <button id="captureBtn" class="action-btn capture-btn" disabled>
+                  📦 Capture
+                </button>
+                <button id="exportBtn" class="action-btn export-btn" disabled>
+                  💾 Export
+                </button>
+                <button id="exportAllBtn" class="action-btn export-all-btn" disabled>
+                  📦 Export All (0)
+                </button>
+              </div>
+
+              <!-- 캡처된 오브젝트 목록 -->
+              <div id="capturedList" class="captured-list">
+                <h4>📦 Captured Objects</h4>
+                <div id="capturedItems" class="captured-items">
+                  <div class="placeholder">캡처된 오브젝트가 없습니다</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 🔥 스크립트 로드 순서 (수파베이스 먼저) -->
+  <!-- 1. 수파베이스 설정 -->
+  <script>
+    const { createClient } = supabase;
+    const testClient = createClient(
+      'https://sposmjzjicgpxmpbzomn.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwb3NtanpqaWNncHhtcGJ6b21uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3OTYxNzIsImV4cCI6MjA2NjM3MjE3Mn0.UjTxOh7tVc6F_kw_5rCOlntnWfrljzhp0ntmeKLuW3c'
+    );
+
+    window.getSupabaseClient = () => testClient;
+    window.isSupabaseConnected = () => true;
+    window.findMappingInSupabase = async function (keyword) {
+      const { data, error } = await testClient
+        .from('katalon_mapping_complete')
+        .select('*')
+        .contains('keywords', [keyword.toLowerCase()]);
+
+      if (error || !data || data.length === 0) {
+        return { found: false, keyword: keyword };
+      }
+
+      return {
+        found: true,
+        mapping: data[0],
+        source: 'complete',
+        action: data[0].action
+      };
+    };
+
+    console.log('✅ 인라인 수파베이스 함수 등록 완료');
+  </script>
+
+  <!-- 기존 라이브러리들 -->
+  <script src="libs/common_utils_zip.js"></script>
+  <script src="libs/csv_parser_zip.js"></script>
+  <script src="libs/groovy_converter_zip.js"></script>
+  <script src="libs/report_viewer_zip.js"></script>
+  <script src="libs/script.js"></script>
+  <script src="libs/gemini-keywords.js"></script>
+
+  <!-- 테스트케이스 매핑 모듈들 -->
+  <script src="libs/testcase_mapping/testcase_parser.js"></script>
+  <script src="libs/testcase_mapping/katalon_mapper.js"></script>
+  <script src="libs/testcase_mapping/testcase_ui_controller.js"></script>
+  <script src="libs/testcase_mapping/testcase_mapper_supabase.js"></script>
+  <script src="libs/ai_engine_Gemma-3-27b-it.js"></script>
+  <script src="libs/ai_engine_gemini-2.0-flash.js"></script>
+
+  <!-- 🔥 Object Spy 모듈들 (새로 추가) -->
+  <script src="assets/js/katalon-object-generator.js"></script>
+  <script src="assets/js/object-spy-controller.js"></script>
+
+  <!-- 애플리케이션 메인 스크립트들 -->
+  <script src="assets/js/ui-utils.js"></script>
+  <script src="assets/js/file-handlers.js"></script>
+  <script src="assets/js/main.js"></script>
+
+  <script>
+    // 수정된 코드 (안전한 탭 전환)
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        // 버튼이 비활성화 상태이면 아무것도 하지 않음
+        if (button.disabled) {
+          return;
+        }
+
+        const tabId = button.getAttribute('data-tab');
+        const targetTab = document.getElementById(tabId);
+
+        // 대상 탭이 존재하는지 확인
+        if (targetTab) {
+          // 모든 탭 비활성화
+          document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+          // 선택된 탭 활성화
+          button.classList.add('active');
+          targetTab.classList.add('active');
+        } else {
+          console.warn(`탭을 찾을 수 없습니다: ${tabId}`);
+        }
+      });
+    });
+
+    // 파일 선택 시 레이블 업데이트
+    document.getElementById('csvFile').addEventListener('change', function () {
+      const label = this.nextElementSibling;
+      if (this.files.length > 0) {
+        label.innerHTML = `✅ ${this.files[0].name}`;
+        label.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+      }
+    });
+
+    document.getElementById('excelFile').addEventListener('change', function () {
+      const label = this.nextElementSibling;
+      if (this.files.length > 0) {
+        label.innerHTML = `✅ ${this.files[0].name}`;
+        label.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+      }
+    });
+
+    document.getElementById('reportFileInput').addEventListener('change', function () {
+      const label = this.nextElementSibling;
+      if (this.files.length > 0) {
+        label.innerHTML = `✅ ${this.files[0].name}`;
+        label.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+      }
+    });
+
+    // TC Merger 내부 탭 전환
+    function switchTCMergerTab(tab) {
+      document.querySelectorAll('.tcmerger-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tcmerger-tab-content').forEach(content => content.classList.remove('active'));
+
+      const targetBtn = document.querySelector(`[data-tcmerger-tab="${tab}"]`);
+      if (targetBtn) {
+        targetBtn.classList.add('active');
+      }
+
+      const targetTab = document.getElementById(tab + 'Tab');
+      if (targetTab) {
+        targetTab.classList.add('active');
+      }
+    }
+
+    // 에러 메시지 표시 함수
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.innerHTML = `
+        <div style="display: flex; align-items: center;">
+          <span style="margin-right: 10px;">⚠️</span>
+          <span>${message}</span>
+        </div>
+      `;
+      errorDiv.style.display = 'block';
+
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 3000);
+    }
+
+    // 성공 메시지 표시 함수
+    function showSuccess(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.innerHTML = `
+        <div style="display: flex; align-items: center; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #065f46; border-left-color: #10b981;">
+          <span style="margin-right: 10px;">✅</span>
+          <span>${message}</span>
+        </div>
+      `;
+      errorDiv.style.display = 'block';
+
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 3000);
+    }
+
+    // 로딩 상태 표시 함수
+    function showLoading(buttonElement, originalText) {
+      buttonElement.innerHTML = `<span class="loading"></span>${originalText}`;
+      buttonElement.disabled = true;
+    }
+
+    function hideLoading(buttonElement, originalText) {
+      buttonElement.innerHTML = originalText;
+      buttonElement.disabled = false;
+    }
+
+    async function startSmartMapping() {
+      const selectedModel = document.getElementById('aiModelSelect').value;
+
+      // 엔진 존재 확인 및 생성
+      if (selectedModel === 'gemma-3-27b-it') {
+        if (!window.gemmaEngine) {
+          console.log('Gemma 엔진 생성 중...');
+          window.gemmaEngine = new GemmaEngine();
+        }
+        await startSmartMappingGemma();
+      } else if (selectedModel === 'gemini-2.0-flash') {
+        if (!window.geminiFlashEngine) {
+          console.log('Gemini Flash 엔진 생성 중...');
+          window.geminiFlashEngine = new GeminiFlashEngine();
+        }
+        await startSmartMappingGemini();
+      }
+    }
+
+    // AI 검토 반영 함수 (모델별 분기)
+    function improveSmartScript() {
+      const selectedModel = document.getElementById('aiModelSelect').value;
+
+      if (selectedModel === 'gemma-3-27b-it') {
+        if (window.gemmaEngine) {
+          window.gemmaEngine.improveAndReEvaluateScript();
+        } else {
+          alert('Gemma AI 엔진을 찾을 수 없습니다.');
+        }
+      } else if (selectedModel === 'gemini-2.0-flash') {
+        if (window.geminiFlashEngine) {
+          window.geminiFlashEngine.improveAndReEvaluateScript();
+        } else {
+          alert('Gemini Flash AI 엔진을 찾을 수 없습니다.');
+        }
+      } else {
+        alert('지원되지 않는 AI 모델입니다.');
+      }
+    }
+    // 스마트 매핑 전체 초기화 함수
+    function resetSmartMapping() {
+      console.log('🔄 스마트 매핑 전체 초기화 시작');
+
+      // 확인 대화상자
+      if (!confirm('스마트 매핑을 초기화하시겠습니까?\n모든 입력 내용과 결과가 삭제됩니다.')) {
+        return;
+      }
+
+      try {
+        // 1. 입력 영역 초기화
+        const testcaseInput = document.getElementById('smartTestcaseInput');
+        if (testcaseInput) {
+          testcaseInput.value = '';
+        }
+
+        // 2. AI 모델 선택 기본값으로 리셋
+        const modelSelect = document.getElementById('aiModelSelect');
+        if (modelSelect) {
+          modelSelect.value = 'gemma-3-27b-it';
+        }
+
+        // 3. 진행 상태 초기화
+        const progressContainer = document.getElementById('smartProgress');
+        if (progressContainer) {
+          progressContainer.style.display = 'none';
+        }
+
+        // 진행 단계 초기화
+        for (let i = 1; i <= 6; i++) {
+          const step = document.getElementById(`step${i}`);
+          if (step) {
+            step.className = 'step';
+          }
+        }
+
+        // 진행 상세 로그 초기화
+        const progressDetails = document.getElementById('progressDetails');
+        if (progressDetails) {
+          progressDetails.innerHTML = '';
+        }
+
+        // 4. 결과 영역 초기화
+        const resultContainer = document.getElementById('smartResult');
+        if (resultContainer) {
+          resultContainer.style.display = 'none';
+        }
+
+        const scriptElement = document.getElementById('smartGeneratedScript');
+        if (scriptElement) {
+          scriptElement.textContent = '';
+        }
+
+        // 5. 품질 평가 영역 초기화
+        const scoreDisplay = document.getElementById('smartScriptScore');
+        const placeholder = document.getElementById('qualityPlaceholder');
+
+        if (scoreDisplay && placeholder) {
+          scoreDisplay.style.display = 'none';
+          placeholder.style.display = 'block';
+        }
+
+        // 6. 버튼 상태 초기화
+        const generateBtn = document.querySelector('.smart-generate-btn');
+        if (generateBtn) {
+          generateBtn.disabled = false;
+          generateBtn.innerHTML = '🧠 스마트 분석 시작';
+        }
+
+        // 7. 전역 변수 초기화
+        window.smartGeneratedScript = null;
+        if (window.gemmaEngine) {
+          window.gemmaEngine.lastEvaluation = null;
+        }
+        if (window.geminiFlashEngine) {
+          window.geminiFlashEngine.lastEvaluation = null;
+        }
+
+        console.log('✅ 스마트 매핑 초기화 완료');
+
+        // 성공 메시지 표시 (선택적)
+        const resetBtn = document.getElementById('smartResetBtn');
+        if (resetBtn) {
+          const originalText = resetBtn.innerHTML;
+          resetBtn.innerHTML = '✅ 초기화됨';
+          resetBtn.disabled = true;
+
+          setTimeout(() => {
+            resetBtn.innerHTML = originalText;
+            resetBtn.disabled = false;
+          }, 1500);
+        }
+
+      } catch (error) {
+        console.error('❌ 초기화 실패:', error);
+        alert('초기화 중 오류가 발생했습니다: ' + error.message);
+      }
+    }
+
+    // 초기화 버튼 이벤트 리스너 등록
+    document.addEventListener('DOMContentLoaded', function () {
+      const resetBtn = document.getElementById('smartResetBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', resetSmartMapping);
+        console.log('✅ 스마트 매핑 초기화 버튼 이벤트 등록 완료');
+      }
+    });
+
+    // 전역 함수로도 등록 (호출 편의성)
+    window.resetSmartMapping = resetSmartMapping;
+  </script>
+</body>
+
+</html>
